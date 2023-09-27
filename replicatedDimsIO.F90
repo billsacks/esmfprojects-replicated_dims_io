@@ -6,7 +6,9 @@ module test_replicated_dims_io
   public :: io_with_replicated_dims
 
 contains
-  subroutine io_with_replicated_dims(fname)
+  subroutine io_with_replicated_dims(decompDim1, decompDim2, fname)
+    integer, intent(in) :: decompDim1
+    integer, intent(in) :: decompDim2
     character(len=*), intent(in) :: fname
 
     integer :: rc
@@ -20,7 +22,7 @@ contains
     distgrid = ESMF_DistGridCreate( &
          minIndex = [1,11,21,31], &
          maxIndex = [8,18,26,37], &
-         regDecomp = [2,4,1,1], &
+         regDecomp = [decompDim1,decompDim2,1,1], &
          rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
          line=__LINE__, file=__FILE__)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
@@ -111,7 +113,10 @@ program replicated_dims_io
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
        line=__LINE__, file=__FILE__)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
-  call io_with_replicated_dims(fname = 'test.nc')
+  call io_with_replicated_dims( &
+       decompDim1 = 2, &
+       decompDim2 = 4, &
+       fname = 'test.nc')
 
   call ESMF_Finalize()
 
