@@ -6,11 +6,12 @@ module test_replicated_dims_io
   public :: io_with_replicated_dims
 
 contains
-  subroutine io_with_replicated_dims(decompDim1, decompDim2, fname, delayout)
+  subroutine io_with_replicated_dims(decompDim1, decompDim2, fname, delayout, skipRead)
     integer, intent(in) :: decompDim1
     integer, intent(in) :: decompDim2
     character(len=*), intent(in) :: fname
     type(ESMF_DELayout), intent(in), optional :: delayout
+    logical, intent(in), optional :: skipRead
 
     integer :: rc
     type(ESMF_DistGrid) :: distgrid
@@ -18,6 +19,13 @@ contains
     type(ESMF_Array) :: array, arrayRead
     real(ESMF_KIND_R8), pointer :: arrayData(:,:), arrayReadData(:,:)
     logical :: allEqual
+    logical :: l_skipRead
+
+    if (present(skipRead)) then
+       l_skipRead = skipRead
+    else
+       l_skipRead = .false.
+    end if
 
     ! Create a 4-d distgrid, with 8 DEs
     distgrid = ESMF_DistGridCreate( &
@@ -59,20 +67,22 @@ contains
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
          line=__LINE__, file=__FILE__)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
-    ! Read the array
-    call ESMF_ArrayRead(arrayRead, fileName=fname, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-         line=__LINE__, file=__FILE__)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
-
-    ! Confirm that read-in field matches original
-    call ESMF_ArrayGet(arrayRead, farrayPtr=arrayReadData, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-         line=__LINE__, file=__FILE__)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
-    allEqual = all(arrayReadData == arrayData)
-    if (.not. allEqual) then
-       if (ESMF_LogFoundError(ESMF_RC_OBJ_BAD, &
-            msg="Read-in data differ from original", &
+    if (.not. l_skipRead) then
+       ! Read the array
+       call ESMF_ArrayRead(arrayRead, fileName=fname, rc=rc)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, file=__FILE__)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
+       ! Confirm that read-in field matches original
+       call ESMF_ArrayGet(arrayRead, farrayPtr=arrayReadData, rc=rc)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=__FILE__)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+       allEqual = all(arrayReadData == arrayData)
+       if (.not. allEqual) then
+          if (ESMF_LogFoundError(ESMF_RC_OBJ_BAD, &
+               msg="Read-in data differ from original", &
+               line=__LINE__, file=__FILE__)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+       end if
     end if
 
   end subroutine io_with_replicated_dims
@@ -109,16 +119,27 @@ program replicated_dims_io
   use test_replicated_dims_io
   implicit none
 
+  type(ESMF_DELayout) :: delayout
   integer :: rc
 
   call ESMF_Initialize(logkindflag=ESMF_LOGKIND_MULTI, defaultCalkind=ESMF_CALKIND_GREGORIAN, rc=rc)
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
        line=__LINE__, file=__FILE__)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
+  ! Simple case
   call io_with_replicated_dims( &
        decompDim1 = 2, &
        decompDim2 = 4, &
        fname = 'test.nc')
+
+  ! 2 DEs per PET
+  delayout = ESMF_DELayoutCreate(petMap=[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7])
+  call io_with_replicated_dims( &
+       decompDim1 = 4, &
+       decompDim2 = 4, &
+       fname = 'test_multiple_des_per_pet.nc', &
+       delayout = delayout, &
+       skipRead = .true.)
 
   call ESMF_Finalize()
 
