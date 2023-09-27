@@ -6,10 +6,11 @@ module test_replicated_dims_io
   public :: io_with_replicated_dims
 
 contains
-  subroutine io_with_replicated_dims(decompDim1, decompDim2, fname)
+  subroutine io_with_replicated_dims(decompDim1, decompDim2, fname, delayout)
     integer, intent(in) :: decompDim1
     integer, intent(in) :: decompDim2
     character(len=*), intent(in) :: fname
+    type(ESMF_DELayout), intent(in), optional :: delayout
 
     integer :: rc
     type(ESMF_DistGrid) :: distgrid
@@ -23,6 +24,7 @@ contains
          minIndex = [1,11,21,31], &
          maxIndex = [8,18,26,37], &
          regDecomp = [decompDim1,decompDim2,1,1], &
+         delayout = delayout, &
          rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
          line=__LINE__, file=__FILE__)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
